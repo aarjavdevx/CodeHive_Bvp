@@ -1,0 +1,16 @@
+{
+  "name": "codehive-server",
+  "version": "1.0.0",
+  "description": "Real-time collaborative workspace backend using Express and Socket.IO",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}
