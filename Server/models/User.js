@@ -26,6 +26,21 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
+    githubId: {
+      type: String,
+      default: null,
+    },
+
+    linkedinId: {
+      type: String,
+      default: null,
+    },
+
+    microsoftId: {
+      type: String,
+      default: null,
+    },
+
     profilePicture: {
       type: String,
       default: null,
@@ -33,7 +48,7 @@ const userSchema = new mongoose.Schema(
 
     authProvider: {
       type: String,
-      enum: ["local", "google"],
+      enum: ["local", "google", "github", "linkedin", "microsoft"],
       default: "local",
     },
   },

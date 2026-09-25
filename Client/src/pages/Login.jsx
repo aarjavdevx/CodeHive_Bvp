@@ -1,9 +1,42 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { GoogleLogin } from "@react-oauth/google";
 
 function Login() {
     const { login, logout, user } = useAuth();
+
+    useEffect(() => {
+    const params = new URLSearchParams(
+        window.location.hash.substring(1)
+    );
+
+    const token = params.get("token");
+    const userData = params.get("user");
+
+    if (token && userData) {
+        try {
+            const parsedUser = JSON.parse(userData);
+
+            login(parsedUser, token);
+
+            setMessage("GitHub login successful!");
+
+            // Remove token and user from the URL
+            window.history.replaceState(
+                {},
+                document.title,
+                "/login"
+            );
+        } catch (error) {
+            console.error(
+                "GitHub login processing error:",
+                error
+            );
+
+            setMessage("GitHub login failed");
+        }
+    }
+}, [login]);
 
     const handleLogout = () => {
         logout();
@@ -96,6 +129,10 @@ function Login() {
     }
 };
 
+const handleGithubLogin = () => {
+    window.location.href = "http://localhost:5000/api/auth/github";
+};
+
     return (
         <div>
             <h1>Login to CodeHive</h1>
@@ -139,6 +176,11 @@ function Login() {
                             setMessage("Google login failed");
                         }}
                     />
+
+                    <br/>
+                    <button type="button" onClick={handleGithubLogin}>
+                        Continue with GitHub
+                    </button>
                 </div>
 
             </form>

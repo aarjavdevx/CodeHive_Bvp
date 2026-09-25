@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -197,6 +198,215 @@ const googleAuth = async (req, res) => {
   }
 };
 
+const githubAuth = (req, res) => {
+  const state = crypto.randomBytes(32).toString("hex");
+
+  res.cookie("github_oauth_state", state, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: false,
+    maxAge: 10 * 60 * 1000,
+  });
+
+  const githubUrl = new URL(
+    "https://github.com/login/oauth/authorize"
+  );
+
+  githubUrl.searchParams.set(
+    "client_id",
+    process.env.GITHUB_CLIENT_ID
+  );
+
+  githubUrl.searchParams.set(
+    "redirect_uri",
+    "http://localhost:5000/api/auth/github/callback"
+  );
+
+  githubUrl.searchParams.set(
+    "scope",
+    "read:user user:email"
+  );
+
+  githubUrl.searchParams.set("state", state);
+
+  res.redirect(githubUrl.toString());
+};
+
+const githubCallback = async (req, res) => {
+  try {
+    const { code, state } = req.query;
+
+if (!code) {
+  return res.status(400).json({
+    message: "GitHub authorization code is missing",
+  });
+}
+
+if (!state) {
+  return res.status(400).json({
+    message: "GitHub OAuth state is missing",
+  });
+}
+
+// Read the OAuth state stored in the HttpOnly cookie
+const cookies = req.headers.cookie || "";
+
+const stateCookie = cookies
+  .split(";")
+  .map((cookie) => cookie.trim())
+  .find((cookie) => cookie.startsWith("github_oauth_state="));
+
+const storedState = stateCookie
+  ? decodeURIComponent(stateCookie.split("=")[1])
+  : null;
+
+if (!storedState || storedState !== state) {
+  return res.status(403).json({
+    message: "Invalid GitHub OAuth state",
+  });
+}
+
+res.clearCookie("github_oauth_state");
+
+    // Exchange authorization code for GitHub access token
+    const tokenResponse = await fetch(
+      "https://github.com/login/oauth/access_token",
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          client_id: process.env.GITHUB_CLIENT_ID,
+          client_secret:
+ process.env.GITHUB_CLIENT_SECRET,
+          code,
+        }),
+      }
+    );
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenData.access_token) {
+      console.error("GitHub token error:", tokenData);
+
+      return res.status(401).json({
+        message: "Failed to get GitHub access token",
+      });
+    }
+
+    const accessToken = tokenData.access_token;
+
+    // Get GitHub profile
+    const profileResponse = await fetch(
+      "https://api.github.com/user",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/vnd.github+json",
+          "User-Agent": "CodeHive",
+        },
+      }
+    );
+
+    const profile = await profileResponse.json();
+
+    if (!profile.id) {
+      return res.status(401).json({
+        message: "Failed to get GitHub profile",
+      });
+    }
+
+    // Get GitHub email
+    const emailResponse = await fetch(
+      "https://api.github.com/user/emails",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/vnd.github+json",
+          "User-Agent": "CodeHive",
+        },
+      }
+    );
+
+    const emails = await emailResponse.json();
+
+    const primaryEmail =
+      emails.find((email) => email.primary && email.verified)?.email ||
+      emails.find((email) => email.verified)?.email;
+
+    if (!primaryEmail) {
+      return res.status(400).json({
+        message: "No verified GitHub email found",
+      });
+    }
+
+    const email = primaryEmail.toLowerCase();
+
+    // Find existing user
+    let user = await User.findOne({
+      $or: [
+        { githubId: String(profile.id) },
+        { email },
+      ],
+    });
+
+    // Create user if they don't exist
+    if (!user) {
+      user = await User.create({
+        name: profile.name || profile.login || "GitHub User",
+        email,
+        githubId: String(profile.id),
+        profilePicture: profile.avatar_url || null,
+        password: null,
+        authProvider: "github",
+      });
+    } else {
+      // Link GitHub account to existing user
+      user.githubId = String(profile.id);
+      user.profilePicture =
+        profile.avatar_url || user.profilePicture;
+
+      await user.save();
+    }
+
+    // Generate CodeHive JWT
+    const token = jwt.sign(
+      {
+        userId: user._id,
+        email: user.email,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "7d",
+      }
+    );
+
+    // For now, return the result
+    const frontendUrl = "http://localhost:5173";
+
+res.redirect(
+  `${frontendUrl}/login?token=${encodeURIComponent(token)}&user=${encodeURIComponent(
+    JSON.stringify({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      profilePicture: user.profilePicture,
+    })
+  )}`
+);
+  } catch (error) {
+    console.error("GitHub authentication error:", error);
+
+    res.status(500).json({
+      message: "GitHub authentication failed",
+    });
+  }
+};
+
+
+
 const logout = async (req, res) => {
   try {
     res.json({ message: "Logout successful" });
@@ -249,6 +459,8 @@ module.exports = {
   signup,
   login,
   googleAuth,
+  githubAuth,
+  githubCallback,
   logout,
   updateProfile,
 };
