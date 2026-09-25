@@ -1,27 +1,49 @@
-const express = require("express");
-const cors = require("cors");
-const dotenv = require("dotenv");
-
-const authRoutes = require("./routes/authRoutes");
-const connectDB = require("./config/db");
-
-dotenv.config();
-
-connectDB();
+import express from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
 
 const app = express();
-
-app.use(cors());
-app.use(express.json());
-
-app.use("/api/auth", authRoutes);
-
-app.get("/", (req, res) => {
-  res.json({ message: "CodeHive server is running" });
-});
-
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`CodeHive server running on port ${PORT}`);
+// Enable CORS for Express REST routes
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST']
+}));
+
+app.use(express.json());
+
+// Health-check endpoint to verify server is running
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', message: 'CodeHive Socket.IO server is running' });
+});
+
+// Create HTTP server wrapping Express
+const server = http.createServer(app);
+
+// Initialize Socket.IO with CORS settings
+// Socket.IO requires its own CORS configuration so the React dev server (e.g. localhost:5173)
+// can open WebSocket/polling connections without browser security errors.
+const io = new Server(server, {
+  cors: {
+    origin: '*', // Allow frontend client connections
+    methods: ['GET', 'POST']
+  }
+});
+
+// Basic connection listener
+io.on('connection', (socket) => {
+  console.log(`[Socket.IO] New client connected: ${socket.id}`);
+
+  socket.on('disconnect', (reason) => {
+    console.log(`[Socket.IO] Client disconnected: ${socket.id} (Reason: ${reason})`);
+  });
+});
+
+server.listen(PORT, () => {
+  console.log(`===============================================`);
+  console.log(`  CodeHive Server running at http://localhost:${PORT}`);
+  console.log(`  Socket.IO initialized and ready for clients`);
+  console.log(`===============================================`);
 });
