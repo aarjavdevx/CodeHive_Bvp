@@ -1,6 +1,6 @@
-const express = require("express");
+import express from "express";
 
-const {
+import {
   signup,
   login,
   googleAuth,
@@ -10,21 +10,38 @@ const {
   discordCallback,
   logout,
   updateProfile,
-} = require("../controllers/authController");
+} from "../controllers/authController.js";
 
-const authMiddleware = require("../middleware/authMiddleware");
+import authMiddleware from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+// ==================== AUTH ROUTES ====================
+
 router.post("/signup", signup);
+
 router.post("/login", login);
+
 router.post("/google", googleAuth);
+
+// ==================== GITHUB OAUTH ====================
+
 router.get("/github", githubAuth);
+
 router.get("/github/callback", githubCallback);
+
+// ==================== DISCORD OAUTH ====================
+
 router.get("/discord", discordAuth);
+
 router.get("/discord/callback", discordCallback);
+
+// ==================== LOGOUT ====================
+
 router.post("/logout", logout);
+
+// ==================== PROFILE ====================
 
 router.put("/profile", authMiddleware, updateProfile);
 
-module.exports = router;
+export default router;

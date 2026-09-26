@@ -1,55 +1,88 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import "./Profile.css";
 
 function Profile() {
-    const { user, logout, updateUser } = useAuth();
+    const { user, token, logout, updateUser } = useAuth();
     const navigate = useNavigate();
 
     const [isEditing, setIsEditing] = useState(false);
     const [name, setName] = useState(user?.name || "");
-    const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState("");
+    const [saving, setSaving] = useState(false);
+    const [statusMessage, setStatusMessage] = useState({
+        text: "",
+        type: "",
+    });
 
     if (!user) {
-    return (
-        <div className="profile-page">
-            <div className="profile-card empty-profile">
-                <div className="empty-icon">👤</div>
+        return (
+            <div className="auth-page">
+                <div className="auth-card text-center">
+                    <div className="auth-header">
+                        <div className="profile-avatar-placeholder">
+                            👤
+                        </div>
 
-                <h1>Profile</h1>
+                        <h2 className="auth-title">
+                            Authentication Required
+                        </h2>
 
-                <p>Please login to view your profile.</p>
+                        <p className="auth-description">
+                            Please sign in to view and manage your
+                            CodeHive developer profile.
+                        </p>
+                    </div>
 
-                <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => navigate("/login")}
-                >
-                    Go to Login
-                </button>
+                    <div className="auth-button-group">
+                        <Link
+                            to="/login"
+                            className="btn-auth-submit text-center"
+                            style={{ textDecoration: "none" }}
+                        >
+                            Sign In Now
+                        </Link>
+
+                        <Link
+                            to="/workspace"
+                            className="auth-back-link"
+                        >
+                            ← Return to Collaborative Editor
+                        </Link>
+                    </div>
+                </div>
             </div>
-        </div>
-    );
-}
+        );
+    }
 
-    const handleSave = async () => {
+    const handleSave = async (e) => {
+        e.preventDefault();
+
         const trimmedName = name.trim();
 
         if (!trimmedName) {
-            setMessage("Name cannot be empty.");
+            setStatusMessage({
+                text: "Name cannot be empty.",
+                type: "error",
+            });
             return;
         }
 
+        setSaving(true);
+        setStatusMessage({
+            text: "",
+            type: "",
+        });
+
         try {
-            setLoading(true);
-            setMessage("");
+            const authToken =
+                token || localStorage.getItem("token");
 
-            const token = localStorage.getItem("token");
-
-            if (!token) {
-                setMessage("Authentication required. Please login again.");
+            if (!authToken) {
+                setStatusMessage({
+                    text: "Authentication required. Please login again.",
+                    type: "error",
+                });
                 return;
             }
 
@@ -59,7 +92,7 @@ function Profile() {
                     method: "PUT",
                     headers: {
                         "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
+                        Authorization: `Bearer ${authToken}`,
                     },
                     body: JSON.stringify({
                         name: trimmedName,
@@ -70,17 +103,17 @@ function Profile() {
             const data = await response.json();
 
             if (!response.ok) {
-                setMessage(
-                    data.message || "Profile update failed."
-                );
+                setStatusMessage({
+                    text:
+                        data.message ||
+                        "Failed to update profile.",
+                    type: "error",
+                });
                 return;
             }
 
-            /*
-             * Preserve existing user information such as
-             * profilePicture and authProvider because the backend
-             * currently returns only id, name and email.
-             */
+            // Preserve existing fields such as profilePicture
+            // and authProvider while updating the returned data.
             const updatedUser = {
                 ...user,
                 ...data.user,
@@ -88,26 +121,47 @@ function Profile() {
 
             updateUser(updatedUser);
 
-            setName(updatedUser.name);
+            setName(updatedUser.name || "");
             setIsEditing(false);
-            setMessage("Profile updated successfully.");
+
+            setStatusMessage({
+                text: "Profile updated successfully!",
+                type: "success",
+            });
         } catch (error) {
-            console.error("Profile update error:", error);
-            setMessage("Unable to update profile. Please try again.");
+            console.error(
+                "Profile update error:",
+                error
+            );
+
+            setStatusMessage({
+                text:
+                    "Could not reach server to save profile changes.",
+                type: "error",
+            });
         } finally {
-            setLoading(false);
+            setSaving(false);
         }
     };
 
     const handleCancel = () => {
         setName(user.name || "");
         setIsEditing(false);
-        setMessage("");
+
+        setStatusMessage({
+            text: "",
+            type: "",
+        });
     };
 
     const handleEdit = () => {
         setName(user.name || "");
-        setMessage("");
+
+        setStatusMessage({
+            text: "",
+            type: "",
+        });
+
         setIsEditing(true);
     };
 
@@ -116,195 +170,210 @@ function Profile() {
           user.authProvider.slice(1)
         : "Local";
 
-    const avatarLetter = user.name
-        ? user.name.charAt(0).toUpperCase()
-        : "U";
+    const getInitials = (userName) => {
+        if (!userName) return "U";
+
+        return userName
+            .split(" ")
+            .map((part) => part[0])
+            .join("")
+            .toUpperCase()
+            .substring(0, 2);
+    };
 
     return (
-        <div className="profile-page">
-            <div className="profile-card">
+        <div className="auth-page">
+            <div className="auth-card profile-card">
 
                 {/* Header */}
-                <div className="profile-header">
-                    <span className="profile-badge">
-                        ⚡ CodeHive
-                    </span>
-
-                    <h1>My Profile</h1>
-
-                    <p>
-                        Manage your account information
-                    </p>
-                </div>
-
-                {/* Profile Avatar */}
-                <div className="avatar-section">
-                    <div className="avatar-wrapper">
+                <div className="auth-header profile-header">
+                    <div className="profile-avatar-badge">
                         {user.profilePicture ? (
                             <img
                                 src={user.profilePicture}
                                 alt="Profile"
-                                className="profile-avatar"
+                                className="profile-img-avatar"
                             />
                         ) : (
-                            <div className="profile-avatar fallback-avatar">
-                                {avatarLetter}
-                            </div>
+                            <span className="profile-avatar-initials">
+                                {getInitials(
+                                    user.name || user.email
+                                )}
+                            </span>
                         )}
-
-                        <div className="online-indicator"></div>
                     </div>
 
-                    <h2>{user.name}</h2>
+                    <h2 className="auth-title">
+                        {user.name || "Developer"}
+                    </h2>
 
-                    <span className="provider-badge">
-                        {providerName} Account
-                    </span>
+                    <p className="auth-description">
+                        {user.email}
+                    </p>
                 </div>
 
-                {/* Account Information */}
-                <div className="profile-info">
+                {/* Status Alert */}
+                {statusMessage.text && (
+                    <div
+                        className={`auth-alert auth-alert-${statusMessage.type}`}
+                    >
+                        <span className="auth-alert-icon">
+                            {statusMessage.type === "error"
+                                ? "⚠️"
+                                : "✅"}
+                        </span>
 
-                    <div className="section-heading">
-                        <div className="section-icon">
-                            👤
-                        </div>
-
-                        <div>
-                            <h3>Account Information</h3>
-                            <p>Your account details</p>
-                        </div>
+                        <span className="auth-alert-text">
+                            {statusMessage.text}
+                        </span>
                     </div>
+                )}
+
+                {/* Profile Details */}
+                <div className="profile-details-grid">
 
                     {/* Name */}
-                    <div className="info-group">
-                        <label htmlFor="profile-name">
-                            Name
-                        </label>
+                    <div className="profile-field-row">
+                        <span className="profile-field-label">
+                            Full Name
+                        </span>
 
                         {isEditing ? (
-                            <input
-                                id="profile-name"
-                                className="profile-input"
-                                type="text"
-                                value={name}
-                                onChange={(e) =>
-                                    setName(e.target.value)
-                                }
-                                placeholder="Enter your name"
-                                autoFocus
-                                disabled={loading}
-                            />
+                            <form
+                                onSubmit={handleSave}
+                                className="profile-edit-inline-form"
+                            >
+                                <input
+                                    type="text"
+                                    className="auth-input profile-edit-input"
+                                    value={name}
+                                    onChange={(e) =>
+                                        setName(e.target.value)
+                                    }
+                                    autoFocus
+                                    required
+                                    disabled={saving}
+                                />
+
+                                <div className="profile-inline-buttons">
+                                    <button
+                                        type="submit"
+                                        className="btn-pill-save"
+                                        disabled={saving}
+                                    >
+                                        {saving
+                                            ? "Saving..."
+                                            : "Save"}
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="btn-pill-cancel"
+                                        onClick={handleCancel}
+                                        disabled={saving}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
                         ) : (
-                            <div className="info-value">
-                                {user.name}
+                            <div className="profile-field-value-group">
+                                <span className="profile-field-value">
+                                    {user.name || "Not set"}
+                                </span>
+
+                                <button
+                                    type="button"
+                                    className="btn-edit-trigger"
+                                    onClick={handleEdit}
+                                >
+                                    ✏️ Edit
+                                </button>
                             </div>
                         )}
                     </div>
 
                     {/* Email */}
-                    <div className="info-group">
-                        <label>Email</label>
+                    <div className="profile-field-row">
+                        <span className="profile-field-label">
+                            Email Address
+                        </span>
 
-                        <div className="info-value">
-                            {user.email}
+                        <div className="profile-field-value-group">
+                            <span className="profile-field-value">
+                                {user.email}
+                            </span>
+
+                            <span className="verified-badge">
+                                ✓ Verified
+                            </span>
                         </div>
                     </div>
 
                     {/* Authentication Provider */}
-                    <div className="info-group">
-                        <label>Authentication</label>
+                    <div className="profile-field-row">
+                        <span className="profile-field-label">
+                            Authentication
+                        </span>
 
-                        <div className="info-value provider-value">
-                            <span className="status-dot"></span>
+                        <div className="profile-field-value-group">
+                            <span className="active-session-pill">
+                                ● {providerName} Account
+                            </span>
+                        </div>
+                    </div>
 
-                            <span>
-                                {providerName}
+                    {/* Session */}
+                    <div className="profile-field-row">
+                        <span className="profile-field-label">
+                            Session Status
+                        </span>
+
+                        <div className="profile-field-value-group">
+                            <span className="active-session-pill">
+                                ● Active Token
                             </span>
                         </div>
                     </div>
                 </div>
 
-                {/* Message */}
-                {message && (
-                    <div
-                        className={`profile-message ${
-                            message.toLowerCase().includes("success")
-                                ? "success"
-                                : "error"
-                        }`}
-                    >
-                        <span>
-                            {message.toLowerCase().includes("success")
-                                ? "✓"
-                                : "!"}
-                        </span>
-
-                        {message}
-                    </div>
-                )}
-
                 {/* Actions */}
-                <div className="profile-actions">
-
-                    {isEditing ? (
-                        <>
-                            <button
-                                type="button"
-                                className="btn btn-primary"
-                                onClick={handleSave}
-                                disabled={loading}
-                            >
-                                {loading ? (
-                                    <>
-                                        <span className="spinner"></span>
-                                        Saving...
-                                    </>
-                                ) : (
-                                    <>
-                                        ✓ Save Changes
-                                    </>
-                                )}
-                            </button>
-
-                            <button
-                                type="button"
-                                className="btn btn-secondary"
-                                onClick={handleCancel}
-                                disabled={loading}
-                            >
-                                Cancel
-                            </button>
-                        </>
-                    ) : (
-                        <button
-                            type="button"
-                            className="btn btn-primary"
-                            onClick={handleEdit}
-                        >
-                            ✎ Edit Profile
-                        </button>
-                    )}
+                <div className="profile-actions-section">
+                    <button
+                        type="button"
+                        className="btn-auth-submit"
+                        onClick={() =>
+                            navigate("/workspace")
+                        }
+                    >
+                        ⚡ Open Collaborative Workspace
+                    </button>
 
                     <button
                         type="button"
-                        className="btn btn-logout"
+                        className="btn-signout-outline"
                         onClick={() => {
                             logout();
-                            navigate("/login", { replace: true });
+                            navigate("/login", {
+                                replace: true,
+                            });
                         }}
-                        disabled={loading}
+                        disabled={saving}
                     >
-                        ↪ Logout
+                        Sign Out
                     </button>
                 </div>
 
                 {/* Footer */}
-                <div className="profile-footer">
-                    <span>CodeHive</span>
-                    <span>•</span>
-                    <span>Account Settings</span>
+                <div className="auth-footer text-center">
+                    <Link
+                        to="/workspace"
+                        className="auth-back-link"
+                    >
+                        ← Back to Collaborative Editor
+                    </Link>
                 </div>
+
             </div>
         </div>
     );

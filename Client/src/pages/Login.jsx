@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { GoogleLogin } from "@react-oauth/google";
 import "./Login.css";
@@ -13,10 +13,11 @@ function Login() {
         password: "",
     });
 
-    const [message, setMessage] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [message, setMessage] = useState({ text: "", type: "" });
     const [loading, setLoading] = useState(false);
 
-    // Handle GitHub OAuth callback
+    // Handle OAuth callback from GitHub
     useEffect(() => {
         const params = new URLSearchParams(
             window.location.hash.substring(1)
@@ -31,7 +32,10 @@ function Login() {
 
                 login(parsedUser, token);
 
-                setMessage("GitHub login successful!");
+                setMessage({
+                    text: "GitHub login successful!",
+                    type: "success",
+                });
 
                 window.history.replaceState(
                     {},
@@ -44,29 +48,33 @@ function Login() {
                     error
                 );
 
-                setMessage("GitHub login failed.");
+                setMessage({
+                    text: "GitHub login failed.",
+                    type: "error",
+                });
             }
         }
     }, [login]);
 
+    // Redirect already logged-in users
     useEffect(() => {
         if (user && !window.location.hash.includes("token=")) {
-            navigate("/profile", { replace: true });
+            navigate("/workspace", { replace: true });
         }
     }, [user, navigate]);
 
     const handleChange = (e) => {
-        setFormData({
-            ...formData,
+        setFormData((prev) => ({
+            ...prev,
             [e.target.name]: e.target.value,
-        });
+        }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
         setLoading(true);
-        setMessage("");
+        setMessage({ text: "", type: "" });
 
         try {
             const response = await fetch(
@@ -76,43 +84,55 @@ function Login() {
                     headers: {
                         "Content-Type": "application/json",
                     },
-                    body: JSON.stringify(formData),
+                    body: JSON.stringify({
+                        email: formData.email.trim(),
+                        password: formData.password,
+                    }),
                 }
             );
 
             const data = await response.json();
 
             if (!response.ok) {
-                setMessage(
-                    data.message || "Login failed."
-                );
+                setMessage({
+                    text:
+                        data.message ||
+                        "Invalid credentials or login failed.",
+                    type: "error",
+                });
                 return;
             }
 
             login(data.user, data.token);
 
-            setMessage("Login successful!");
+            setMessage({
+                text: `Welcome back, ${
+                    data.user?.name || "Developer"
+                }! Redirecting...`,
+                type: "success",
+            });
 
             setTimeout(() => {
-                navigate("/profile");
-            },500);
+                navigate("/workspace");
+            }, 900);
         } catch (error) {
-            console.error("Login error:", error);
-            setMessage(
-                "Unable to connect to server."
-            );
+            console.error("Login request error:", error);
+
+            setMessage({
+                text:
+                    "Could not reach the authentication server. Please check your backend connection.",
+                type: "error",
+            });
         } finally {
             setLoading(false);
         }
     };
 
-    const handleGoogleLogin = async (
-        credentialResponse
-    ) => {
-        try {
-            setLoading(true);
-            setMessage("");
+    const handleGoogleLogin = async (credentialResponse) => {
+        setLoading(true);
+        setMessage({ text: "", type: "" });
 
+        try {
             const response = await fetch(
                 "http://localhost:5000/api/auth/google",
                 {
@@ -121,8 +141,7 @@ function Login() {
                         "Content-Type": "application/json",
                     },
                     body: JSON.stringify({
-                        credential:
-                            credentialResponse.credential,
+                        credential: credentialResponse.credential,
                     }),
                 }
             );
@@ -130,305 +149,306 @@ function Login() {
             const data = await response.json();
 
             if (!response.ok) {
-                setMessage(
-                    data.message ||
-                        "Google login failed."
-                );
+                setMessage({
+                    text:
+                        data.message ||
+                        "Google authentication failed",
+                    type: "error",
+                });
                 return;
             }
 
             login(data.user, data.token);
 
-            setMessage("Google login successful!");
+            setMessage({
+                text: "Google sign-in successful! Redirecting...",
+                type: "success",
+            });
 
             setTimeout(() => {
-                navigate("/profile");
-            }, 500);
+                navigate("/workspace");
+            }, 900);
         } catch (error) {
-            console.error(
-                "Google login error:",
-                error
-            );
+            console.error("Google login error:", error);
 
-            setMessage(
-                "Unable to connect to server."
-            );
+            setMessage({
+                text:
+                    "Unable to connect to server for Google authentication.",
+                type: "error",
+            });
         } finally {
             setLoading(false);
         }
     };
 
+    // GitHub OAuth
     const handleGithubLogin = () => {
-        setMessage("");
+        setMessage({ text: "", type: "" });
+
         window.location.href =
             "http://localhost:5000/api/auth/github";
     };
 
-    const handleLogout = () => {
-        logout();
-        setMessage("");
-    };
-
+    // Discord OAuth
     const handleDiscordLogin = () => {
-        setMessage("");
+        setMessage({ text: "", type: "" });
+
         window.location.href =
             "http://localhost:5000/api/auth/discord";
     };
 
+    const handleLogout = () => {
+        logout();
+        setMessage({ text: "", type: "" });
+    };
+
     return (
-        <div className="login-page">
+        <div className="auth-page">
+            <div className="auth-card">
 
-            <div className="login-container">
+                {/* Brand header */}
+                <div className="auth-header">
+                    <div className="logo-group auth-logo-center">
+                        <div className="logo-badge">⚡</div>
 
-                {/* Left Branding Section */}
-                <div className="login-brand">
+                        <div>
+                            <h1 className="logo-title">
+                                CodeHive
+                            </h1>
 
-                    <div className="brand-logo">
-                        ⚡
+                            <p className="logo-subtitle">
+                                Real-Time Collaborative Code Editor
+                            </p>
+                        </div>
                     </div>
 
-                    <h1>CodeHive</h1>
+                    <h2 className="auth-title">
+                        Welcome Back
+                    </h2>
 
-                    <p className="brand-tagline">
-                        Collaborate. Code. Create.
+                    <p className="auth-description">
+                        Sign in to collaborate on live code workspaces
                     </p>
-
-                    <p className="brand-description">
-                        Your collaborative coding workspace
-                        built for developers who build together.
-                    </p>
-
-                    <div className="brand-features">
-
-                        <div className="brand-feature">
-                            <span>⚡</span>
-                            <div>
-                                <strong>Real-Time Collaboration</strong>
-                                <small>
-                                    Code together with your team.
-                                </small>
-                            </div>
-                        </div>
-
-                        <div className="brand-feature">
-                            <span>💻</span>
-                            <div>
-                                <strong>Developer Workspace</strong>
-                                <small>
-                                    Build and experiment together.
-                                </small>
-                            </div>
-                        </div>
-
-                        <div className="brand-feature">
-                            <span>🚀</span>
-                            <div>
-                                <strong>Build Faster</strong>
-                                <small>
-                                    Turn ideas into working projects.
-                                </small>
-                            </div>
-                        </div>
-
-                    </div>
                 </div>
 
-                {/* Login Card */}
-                <div className="login-card">
-
-                    <div className="login-header">
-                        <span className="login-badge">
-                            Welcome Back
+                {/* Existing session */}
+                {user && (
+                    <div className="auth-existing-user-banner">
+                        <span>
+                            Logged in as{" "}
+                            <strong>{user.email}</strong>
                         </span>
 
-                        <h2>Sign in to CodeHive</h2>
-
-                        <p>
-                            Continue your coding journey
-                        </p>
-                    </div>
-
-                    <form
-                        onSubmit={handleSubmit}
-                        className="login-form"
-                    >
-
-                        {/* Email */}
-                        <div className="form-group">
-                            <label htmlFor="email">
-                                Email
-                            </label>
-
-                            <div className="input-wrapper">
-                                <span className="input-icon">
-                                    ✉
-                                </span>
-
-                                <input
-                                    id="email"
-                                    type="email"
-                                    name="email"
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                    placeholder="Enter your email"
-                                    required
-                                    disabled={loading}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Password */}
-                        <div className="form-group">
-                            <label htmlFor="password">
-                                Password
-                            </label>
-
-                            <div className="input-wrapper">
-                                <span className="input-icon">
-                                    🔒
-                                </span>
-
-                                <input
-                                    id="password"
-                                    type="password"
-                                    name="password"
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    placeholder="Enter your password"
-                                    required
-                                    disabled={loading}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Login Button */}
-                        <button
-                            type="submit"
-                            className="login-button"
-                            disabled={loading}
-                        >
-                            {loading ? (
-                                <>
-                                    <span className="login-spinner"></span>
-                                    Logging in...
-                                </>
-                            ) : (
-                                <>
-                                    Login
-                                    <span>→</span>
-                                </>
-                            )}
-                        </button>
-
-                        {/* Divider */}
-                        <div className="login-divider">
-                            <span>OR CONTINUE WITH</span>
-                        </div>
-
-                        {/* Google */}
-                        <div className="google-login-wrapper">
-                            <GoogleLogin
-                                onSuccess={
-                                    handleGoogleLogin
+                        <div className="auth-inline-actions">
+                            <button
+                                type="button"
+                                className="btn-link-action"
+                                onClick={() =>
+                                    navigate("/workspace")
                                 }
-                                onError={() => {
-                                    setMessage(
-                                        "Google login failed."
-                                    );
-                                }}
-                                theme="filled_black"
-                                size="large"
-                                width="100%"
-                            />
-                        </div>
-
-                        {/* GitHub */}
-                        <button
-                            type="button"
-                            className="github-button"
-                            onClick={handleGithubLogin}
-                            disabled={loading}
-                        >
-                            <span className="github-icon">
-                                ◉
-                            </span>
-
-                            <span>
-                                Continue with GitHub
-                            </span>
-                        </button>
-
-                        <button
-                            type="button"
-                            className="oauth-button discord-button"
-                            onClick={handleDiscordLogin}
-                        >
-                            Continue with Discord
-                        </button>
-
-                    </form>
-
-                    {/* Message */}
-                    {message && (
-                        <div
-                            className={`login-message ${
-                                message
-                                    .toLowerCase()
-                                    .includes("successful")
-                                    ? "success"
-                                    : "error"
-                            }`}
-                        >
-                            <span>
-                                {message
-                                    .toLowerCase()
-                                    .includes("successful")
-                                    ? "✓"
-                                    : "!"}
-                            </span>
-
-                            {message}
-                        </div>
-                    )}
-
-                    {/* Logged-in State */}
-                    {user && (
-                        <div className="logged-user">
-
-                            <div className="logged-user-avatar">
-                                {user.name
-                                    ?.charAt(0)
-                                    .toUpperCase() || "U"}
-                            </div>
-
-                            <div className="logged-user-info">
-                                <span>
-                                    Logged in as
-                                </span>
-
-                                <strong>
-                                    {user.email}
-                                </strong>
-                            </div>
+                            >
+                                Go to Workspace →
+                            </button>
 
                             <button
                                 type="button"
+                                className="btn-link-action btn-link-danger"
                                 onClick={handleLogout}
-                                className="small-logout"
                             >
-                                Logout
+                                Sign Out
                             </button>
-
                         </div>
-                    )}
+                    </div>
+                )}
 
-                    <div className="login-footer">
-                        <span>⚡ CodeHive</span>
-                        <span>•</span>
-                        <span>Secure Authentication</span>
+                {/* Feedback message */}
+                {message.text && (
+                    <div
+                        className={`auth-alert auth-alert-${message.type}`}
+                    >
+                        <span className="auth-alert-icon">
+                            {message.type === "error"
+                                ? "⚠️"
+                                : "✅"}
+                        </span>
+
+                        <span className="auth-alert-text">
+                            {message.text}
+                        </span>
+                    </div>
+                )}
+
+                {/* Login form */}
+                <form
+                    onSubmit={handleSubmit}
+                    className="auth-form"
+                >
+                    {/* Email */}
+                    <div className="auth-input-group">
+                        <label
+                            className="auth-label"
+                            htmlFor="login-email"
+                        >
+                            Email Address
+                        </label>
+
+                        <div className="input-with-icon">
+                            <span className="input-icon">
+                                ✉️
+                            </span>
+
+                            <input
+                                id="login-email"
+                                type="email"
+                                name="email"
+                                className="auth-input"
+                                value={formData.email}
+                                onChange={handleChange}
+                                placeholder="developer@codehive.io"
+                                autoComplete="email"
+                                required
+                                disabled={loading}
+                            />
+                        </div>
                     </div>
 
+                    {/* Password */}
+                    <div className="auth-input-group">
+                        <div className="auth-label-row">
+                            <label
+                                className="auth-label"
+                                htmlFor="login-password"
+                            >
+                                Password
+                            </label>
+                        </div>
+
+                        <div className="input-with-icon">
+                            <span className="input-icon">
+                                🔒
+                            </span>
+
+                            <input
+                                id="login-password"
+                                type={
+                                    showPassword
+                                        ? "text"
+                                        : "password"
+                                }
+                                name="password"
+                                className="auth-input"
+                                value={formData.password}
+                                onChange={handleChange}
+                                placeholder="Enter your password"
+                                autoComplete="current-password"
+                                required
+                                disabled={loading}
+                            />
+
+                            <button
+                                type="button"
+                                className="btn-toggle-password"
+                                onClick={() =>
+                                    setShowPassword(
+                                        !showPassword
+                                    )
+                                }
+                                aria-label={
+                                    showPassword
+                                        ? "Hide password"
+                                        : "Show password"
+                                }
+                            >
+                                {showPassword ? "👁️" : "🙈"}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Login */}
+                    <button
+                        type="submit"
+                        className="btn-auth-submit"
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <span className="spinner-inline">
+                                Logging in...
+                            </span>
+                        ) : (
+                            "Sign In to CodeHive"
+                        )}
+                    </button>
+                </form>
+
+                {/* OAuth */}
+                <div className="auth-divider-section">
+                    <span className="auth-divider-line"></span>
+                    <span className="auth-divider-text">
+                        OR CONTINUE WITH
+                    </span>
+                    <span className="auth-divider-line"></span>
                 </div>
+
+                {/* Google */}
+                <div className="auth-google-container">
+                    <GoogleLogin
+                        onSuccess={handleGoogleLogin}
+                        onError={() => {
+                            setMessage({
+                                text:
+                                    "Google sign-in popup was closed or encountered an error.",
+                                type: "error",
+                            });
+                        }}
+                    />
+                </div>
+
+                {/* GitHub */}
+                <button
+                    type="button"
+                    className="github-button"
+                    onClick={handleGithubLogin}
+                    disabled={loading}
+                >
+                    <span className="github-icon">
+                        ◉
+                    </span>
+
+                    <span>
+                        Continue with GitHub
+                    </span>
+                </button>
+
+                {/* Discord */}
+                <button
+                    type="button"
+                    className="oauth-button discord-button"
+                    onClick={handleDiscordLogin}
+                    disabled={loading}
+                >
+                    Continue with Discord
+                </button>
+
+                {/* Footer Navigation */}
+                <div className="auth-footer">
+                    <p className="auth-switch-text">
+                        Don't have an account yet?{" "}
+                        <Link
+                            to="/signup"
+                            className="auth-accent-link"
+                        >
+                            Create an account
+                        </Link>
+                    </p>
+
+                    <Link
+                        to="/workspace"
+                        className="auth-back-link"
+                    >
+                        ← Continue as Guest to Editor
+                    </Link>
+                </div>
+
             </div>
         </div>
     );

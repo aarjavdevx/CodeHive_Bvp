@@ -8,34 +8,48 @@ import {
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-    const updateUser = useCallback((updatedUser) => {
-        localStorage.setItem("user", JSON.stringify(updatedUser));
-        setUser(updatedUser);
-    }, []);
-    
     const [user, setUser] = useState(() => {
-        const storedUser = localStorage.getItem("user");
-        return storedUser ? JSON.parse(storedUser) : null;
+        try {
+            const storedUser = localStorage.getItem("user");
+            return storedUser ? JSON.parse(storedUser) : null;
+        } catch {
+            return null;
+        }
     });
 
-    const login = useCallback((userData, token) => {
-        localStorage.setItem("token", token);
+    const [token, setToken] = useState(
+        () => localStorage.getItem("token") || ""
+    );
+
+    const login = useCallback((userData, authToken) => {
+        localStorage.setItem("token", authToken || "");
         localStorage.setItem("user", JSON.stringify(userData));
 
         setUser(userData);
-    },[]);
+        setToken(authToken || "");
+    }, []);
 
     const logout = useCallback(() => {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
 
         setUser(null);
-    },[]);
+        setToken("");
+    }, []);
+
+    const updateUser = useCallback((updatedFields) => {
+        setUser((prev) => {
+            const next = { ...prev, ...updatedFields };
+            localStorage.setItem("user", JSON.stringify(next));
+            return next;
+        });
+    }, []);
 
     return (
         <AuthContext.Provider
             value={{
                 user,
+                token,
                 login,
                 logout,
                 updateUser
