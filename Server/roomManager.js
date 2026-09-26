@@ -135,6 +135,17 @@ class RoomManager {
     }
     return result;
   }
+
+  /**
+   * End a room completely
+   */
+  endRoom(roomId) {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+    this.rooms.delete(roomId);
+    console.log(`[RoomManager] Room "${roomId}" was ended.`);
+    return room;
+  }
 }
 
 export const roomManager = new RoomManager();
