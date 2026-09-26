@@ -1,12 +1,28 @@
-const User = require("../models/User");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const { OAuth2Client } = require("google-auth-library");
+import mongoose from "mongoose";
+import User from "../models/User.js";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { OAuth2Client } from "google-auth-library";
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const getGoogleClient = () => {
+  if (process.env.GOOGLE_CLIENT_ID) {
+    return new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+  }
+  return null;
+};
 
-const signup = async (req, res) => {
+const getJwtSecret = () => {
+  return process.env.JWT_SECRET || "codehive_default_jwt_secret_dev_2026";
+};
+
+export const signup = async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        message: "Database is not connected. Please provide MongoDB credentials in .env.",
+      });
+    }
+
     const { name, email, password } = req.body;
 
     // Check required fields
@@ -17,11 +33,11 @@ const signup = async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
 
     if (existingUser) {
       return res.status(400).json({
-        message: "User already exists",
+        message: "User already exists with this email",
       });
     }
 
@@ -30,14 +46,26 @@ const signup = async (req, res) => {
 
     // Create user
     const user = await User.create({
-      name,
-      email,
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
       password: hashedPassword,
       authProvider: "local",
     });
 
+    const token = jwt.sign(
+      {
+        userId: user._id,
+        email: user.email,
+      },
+      getJwtSecret(),
+      {
+        expiresIn: "7d",
+      }
+    );
+
     res.status(201).json({
       message: "Signup successful",
+      token,
       user: {
         id: user._id,
         name: user.name,
@@ -45,16 +73,22 @@ const signup = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(error);
+    console.error("Signup error:", error);
 
     res.status(500).json({
-      message: "Signup failed",
+      message: error.message || "Signup failed. Check database connection.",
     });
   }
 };
 
-const login = async (req, res) => {
+export const login = async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        message: "Database is not connected. Please provide MongoDB credentials in .env.",
+      });
+    }
+
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -63,7 +97,7 @@ const login = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.toLowerCase() });
 
     if (!user) {
       return res.status(401).json({
@@ -93,7 +127,7 @@ const login = async (req, res) => {
         userId: user._id,
         email: user.email,
       },
-      process.env.JWT_SECRET,
+      getJwtSecret(),
       {
         expiresIn: "7d",
       }
@@ -112,18 +146,25 @@ const login = async (req, res) => {
     console.error("Login error:", error);
 
     res.status(500).json({
-      message: "Login failed",
+      message: error.message || "Login failed. Check database connection.",
     });
   }
 };
 
-const googleAuth = async (req, res) => {
+export const googleAuth = async (req, res) => {
   try {
     const { credential } = req.body;
 
     if (!credential) {
       return res.status(400).json({
         message: "Google credential is required",
+      });
+    }
+
+    const googleClient = getGoogleClient();
+    if (!googleClient) {
+      return res.status(500).json({
+        message: "GOOGLE_CLIENT_ID is not configured on the server",
       });
     }
 
@@ -172,7 +213,7 @@ const googleAuth = async (req, res) => {
         userId: user._id,
         email: user.email,
       },
-      process.env.JWT_SECRET,
+      getJwtSecret(),
       {
         expiresIn: "7d",
       }
@@ -197,7 +238,7 @@ const googleAuth = async (req, res) => {
   }
 };
 
-const logout = async (req, res) => {
+export const logout = async (req, res) => {
   try {
     res.json({ message: "Logout successful" });
   } catch (error) {
@@ -205,7 +246,7 @@ const logout = async (req, res) => {
   }
 };
 
-const updateProfile = async (req, res) => {
+export const updateProfile = async (req, res) => {
   try {
     const { userId } = req.user;
     const { name } = req.body;
@@ -243,12 +284,4 @@ const updateProfile = async (req, res) => {
       message: "Profile update failed",
     });
   }
-};
-
-module.exports = {
-  signup,
-  login,
-  googleAuth,
-  logout,
-  updateProfile,
 };

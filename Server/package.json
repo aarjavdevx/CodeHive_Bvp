@@ -10,8 +10,13 @@
   },
   "dependencies": {
     "axios": "^1.20.0",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
+    "dotenv": "^18.0.4",
     "express": "^4.21.2",
+    "google-auth-library": "^11.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.10.2",
     "socket.io": "^4.8.1"
   }
 }
