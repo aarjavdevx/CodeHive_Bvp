@@ -386,17 +386,20 @@ res.clearCookie("github_oauth_state");
     // For now, return the result
     const frontendUrl = "http://localhost:5173";
 
+const userData = {
+  id: user._id,
+  name: user.name,
+  email: user.email,
+  profilePicture: user.profilePicture,
+};
+
 res.redirect(
-  `${frontendUrl}/login?token=${encodeURIComponent(token)}&user=${encodeURIComponent(
-    JSON.stringify({
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      profilePicture: user.profilePicture,
-    })
-  )}`
-);
+  `${frontendUrl}/login#token=${encodeURIComponent(
+    token
+  )}&user=${encodeURIComponent(JSON.stringify(userData))}`
+);s
   } catch (error) {
+    
     console.error("GitHub authentication error:", error);
 
     res.status(500).json({

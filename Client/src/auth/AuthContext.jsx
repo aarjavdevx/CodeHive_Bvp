@@ -8,6 +8,11 @@ import {
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
+    const updateUser = useCallback((updatedUser) => {
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+        setUser(updatedUser);
+    }, []);
+    
     const [user, setUser] = useState(() => {
         const storedUser = localStorage.getItem("user");
         return storedUser ? JSON.parse(storedUser) : null;
@@ -33,6 +38,7 @@ export const AuthProvider = ({ children }) => {
                 user,
                 login,
                 logout,
+                updateUser
             }}
         >
             {children}
