@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "server": "npm --prefix server run dev",
+    "server": "npm --prefix Server run dev",
     "client": "npm --prefix Client run dev",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
