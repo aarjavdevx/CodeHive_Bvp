@@ -490,6 +490,42 @@
 }
 
 /* =========================
+   DISCORD
+========================= */
+
+.discord-button {
+    width: 100%;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    margin-top: 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(88, 101, 242, 0.25);
+    background: rgba(88, 101, 242, 0.12);
+    color: #c7d2fe;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.discord-button:hover:not(:disabled) {
+    background: rgba(88, 101, 242, 0.2);
+    border-color: rgba(88, 101, 242, 0.4);
+    transform: translateY(-1px);
+}
+
+.discord-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* =========================
    MESSAGE
 ========================= */
 

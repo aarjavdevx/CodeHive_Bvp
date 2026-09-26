@@ -408,6 +408,211 @@ res.redirect(
   }
 };
 
+// ==================== DISCORD OAUTH ====================
+
+const discordAuth = (req, res) => {
+  const state = crypto.randomBytes(32).toString("hex");
+
+  res.cookie("discord_oauth_state", state, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: false,
+    maxAge: 10 * 60 * 1000,
+  });
+
+  const discordUrl = new URL(
+    "https://discord.com/oauth2/authorize"
+  );
+
+  discordUrl.searchParams.set(
+    "client_id",
+    process.env.DISCORD_CLIENT_ID
+  );
+
+  discordUrl.searchParams.set(
+    "redirect_uri",
+    "http://localhost:5000/api/auth/discord/callback"
+  );
+
+  discordUrl.searchParams.set("response_type", "code");
+
+  discordUrl.searchParams.set(
+    "scope",
+    "identify email"
+  );
+
+  discordUrl.searchParams.set("state", state);
+
+  res.redirect(discordUrl.toString());
+};
+
+
+const discordCallback = async (req, res) => {
+  try {
+    const { code, state } = req.query;
+
+    if (!code) {
+      return res.status(400).json({
+        message: "Discord authorization code is missing",
+      });
+    }
+
+    if (!state) {
+      return res.status(400).json({
+        message: "Discord OAuth state is missing",
+      });
+    }
+
+    // Read OAuth state from HttpOnly cookie
+    const cookies = req.headers.cookie || "";
+
+    const stateCookie = cookies
+      .split(";")
+      .map((cookie) => cookie.trim())
+      .find((cookie) =>
+        cookie.startsWith("discord_oauth_state=")
+      );
+
+    const storedState = stateCookie
+      ? decodeURIComponent(stateCookie.split("=")[1])
+      : null;
+
+    if (!storedState || storedState !== state) {
+      return res.status(403).json({
+        message: "Invalid Discord OAuth state",
+      });
+    }
+
+    res.clearCookie("discord_oauth_state");
+
+    // Exchange authorization code for Discord access token
+    const tokenResponse = await fetch(
+      "https://discord.com/api/v10/oauth2/token",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          client_id: process.env.DISCORD_CLIENT_ID,
+          client_secret: process.env.DISCORD_CLIENT_SECRET,
+          grant_type: "authorization_code",
+          code,
+          redirect_uri:
+            "http://localhost:5000/api/auth/discord/callback",
+        }),
+      }
+    );
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenData.access_token) {
+      console.error("Discord token error:", tokenData);
+
+      return res.status(401).json({
+        message: "Failed to get Discord access token",
+      });
+    }
+
+    const accessToken = tokenData.access_token;
+
+    // Get Discord user information
+    const userResponse = await fetch(
+      "https://discord.com/api/v10/users/@me",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    const discordUser = await userResponse.json();
+
+    if (!discordUser.id) {
+      return res.status(401).json({
+        message: "Failed to get Discord user",
+      });
+    }
+
+    if (!discordUser.email) {
+      return res.status(400).json({
+        message: "Discord account email is not available",
+      });
+    }
+
+    const email = discordUser.email.toLowerCase();
+
+    // Find existing user by Discord ID or email
+    let user = await User.findOne({
+      $or: [
+        { discordId: String(discordUser.id) },
+        { email },
+      ],
+    });
+
+    // Create new user
+    if (!user) {
+      user = await User.create({
+        name:
+          discordUser.global_name ||
+          discordUser.username ||
+          "Discord User",
+        email,
+        discordId: String(discordUser.id),
+        profilePicture: discordUser.avatar
+          ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`
+          : null,
+        password: null,
+        authProvider: "discord",
+      });
+    } else {
+      // Link Discord account to existing user
+      user.discordId = String(discordUser.id);
+
+      if (discordUser.avatar) {
+        user.profilePicture =
+          `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`;
+      }
+
+      await user.save();
+    }
+
+    // Generate CodeHive JWT
+    const token = jwt.sign(
+      {
+        userId: user._id,
+        email: user.email,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "7d",
+      }
+    );
+
+    const frontendUrl = "http://localhost:5173";
+
+    const userData = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      profilePicture: user.profilePicture,
+      authProvider: user.authProvider,
+    };
+
+    res.redirect(
+      `${frontendUrl}/login#token=${encodeURIComponent(
+        token
+      )}&user=${encodeURIComponent(JSON.stringify(userData))}`
+    );
+  } catch (error) {
+    console.error("Discord authentication error:", error);
+
+    res.status(500).json({
+      message: "Discord authentication failed",
+    });
+  }
+};
+
 
 
 const logout = async (req, res) => {
@@ -464,6 +669,8 @@ module.exports = {
   googleAuth,
   githubAuth,
   githubCallback,
+  discordAuth,
+  discordCallback,
   logout,
   updateProfile,
 };

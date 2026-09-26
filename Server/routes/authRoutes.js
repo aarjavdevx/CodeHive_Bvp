@@ -6,6 +6,8 @@ const {
   googleAuth,
   githubAuth,
   githubCallback,
+  discordAuth,
+  discordCallback,
   logout,
   updateProfile,
 } = require("../controllers/authController");
@@ -19,6 +21,8 @@ router.post("/login", login);
 router.post("/google", googleAuth);
 router.get("/github", githubAuth);
 router.get("/github/callback", githubCallback);
+router.get("/discord", discordAuth);
+router.get("/discord/callback", discordCallback);
 router.post("/logout", logout);
 
 router.put("/profile", authMiddleware, updateProfile);

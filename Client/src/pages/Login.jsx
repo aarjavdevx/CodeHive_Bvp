@@ -169,6 +169,12 @@ function Login() {
         setMessage("");
     };
 
+    const handleDiscordLogin = () => {
+        setMessage("");
+        window.location.href =
+            "http://localhost:5000/api/auth/discord";
+    };
+
     return (
         <div className="login-page">
 
@@ -350,6 +356,14 @@ function Login() {
                             <span>
                                 Continue with GitHub
                             </span>
+                        </button>
+
+                        <button
+                            type="button"
+                            className="oauth-button discord-button"
+                            onClick={handleDiscordLogin}
+                        >
+                            Continue with Discord
                         </button>
 
                     </form>

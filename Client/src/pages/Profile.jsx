@@ -1,154 +1,3 @@
-// import { useState } from "react";
-// import { useAuth } from "../auth/AuthContext";
-// import "./Profile.css";
-
-// function Profile() {
-//     const { user, logout, updateUser } = useAuth();
-
-//     const [isEditing, setIsEditing] = useState(false);
-//     const [name, setName] = useState(user?.name || "");
-//     const [loading, setLoading] = useState(false);
-//     const [message, setMessage] = useState("");
-
-//     if (!user) {
-//         return (
-//             <div>
-//                 <h1>Profile</h1>
-//                 <p>Please login to view your profile.</p>
-//             </div>
-//         );
-//     }
-
-//     const handleSave = async () => {
-//     if (!name.trim()) {
-//         setMessage("Name cannot be empty.");
-//         return;
-//     }
-
-//     try {
-//         setLoading(true);
-//         setMessage("");
-
-//         const token = localStorage.getItem("token");
-
-//         const response = await fetch(
-//             "http://localhost:5000/api/auth/profile",
-//             {
-//                 method: "PUT",
-//                 headers: {
-//                     "Content-Type": "application/json",
-//                     Authorization: `Bearer ${token}`,
-//                 },
-//                 body: JSON.stringify({
-//                     name: name.trim(),
-//                 }),
-//             }
-//         );
-
-//         const data = await response.json();
-
-//         if (!response.ok) {
-//             setMessage(data.message || "Profile update failed.");
-//             return;
-//         }
-
-//         updateUser(data.user);
-//         setName(data.user.name);
-//         setIsEditing(false);
-//         setMessage("Profile updated successfully.");
-//     } catch (error) {
-//         console.error("Profile update error:", error);
-//         setMessage("Unable to update profile.");
-//     } finally {
-//         setLoading(false);
-//     }
-// };
-
-//     return (
-//         <div>
-
-//             {user.profilePicture && (
-//                 <div>
-//                     <img
-//                         src={user.profilePicture}
-//                         alt="Profile"
-//                         width="120"
-//                         height="120"
-//                         style={{
-//                             borderRadius: "50%",
-//                             objectFit: "cover",
-//                         }}
-//                     />
-//                 </div>
-//             )}
-
-//             <h1>My Profile</h1>
-
-//             <div>
-//                 <h2>Profile Information</h2>
-
-//                 <div>
-//                     <label>Name</label>
-
-//                     {isEditing ? (
-//                         <input
-//                             type="text"
-//                             value={name}
-//                             onChange={(e) => setName(e.target.value)}
-//                         />
-//                     ) : (
-//                         <p>{name}</p>
-//                     )}
-//                 </div>
-
-//                 <div>
-//                     <label>Email</label>
-//                     <p>{user.email}</p>
-//                 </div>
-
-//                 <div>
-//                     <label>Authentication Provider</label>
-//                     <p>{user.authProvider || "local"}</p>
-//                 </div>
-
-//                 {isEditing ? (
-//                     <div>
-//                     <button onClick={handleSave} disabled={loading}>
-//                         {loading ? "Saving..." : "Save"}
-//                     </button>
-
-//                         <button
-//                             onClick={() => {
-//                                 setName(user.name);
-//                                 setIsEditing(false);
-//                                 setMessage("");
-//                             }}
-//                             disabled={loading}
-//                         >
-//                             Cancel
-//                         </button>
-//                     </div>
-//                 ) : (
-//                     <button onClick={() => setIsEditing(true)}>
-//                         Edit Profile
-//                     </button>
-//                 )}
-
-//                 <br />
-//                 <br />
-
-//                 <button onClick={logout}>
-//                     Logout
-//                 </button>
-//             </div>
-//         </div>
-//     );
-// }
-
-// export default Profile;
-
-
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -164,16 +13,26 @@ function Profile() {
     const [message, setMessage] = useState("");
 
     if (!user) {
-        return (
-            <div className="profile-page">
-                <div className="profile-card empty-profile">
-                    <div className="empty-icon">👤</div>
-                    <h1>Profile</h1>
-                    <p>Please login to view your profile.</p>
-                </div>
+    return (
+        <div className="profile-page">
+            <div className="profile-card empty-profile">
+                <div className="empty-icon">👤</div>
+
+                <h1>Profile</h1>
+
+                <p>Please login to view your profile.</p>
+
+                <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => navigate("/login")}
+                >
+                    Go to Login
+                </button>
             </div>
-        );
-    }
+        </div>
+    );
+}
 
     const handleSave = async () => {
         const trimmedName = name.trim();
